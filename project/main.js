@@ -27,6 +27,75 @@ light.shadowCameraTop = 5
 light.shadowCameraBottom = -5
 
 
+// world
+var world = new CANNON.World();
+world.gravity.set(0, -9.82, 0); // gravidade da terra em m/s²
+
+var groundBody = new CANNON.Body({
+    mass: 0
+});
+
+
+var groundShape = new CANNON.Plane();
+
+const sphereGeometry = new THREE.SphereGeometry(0.1, 16, 16); 
+const sphereMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff }); 
+const spherePhysicsMaterial = new CANNON.Material('sphereMaterial');
+
+groundBody.addShape(groundShape);
+
+groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1,0,0), -Math.PI / 2);
+groundBody.position.y = -2;
+groundBody.material = spherePhysicsMaterial;
+world.addBody(groundBody);
+
+var fixedTimeStep = 1.0 / 60.0; // 60 atualizações por segundo (60 Hz).
+var maxSubSteps = 3;
+
+// *** bolinhas ***
+
+const spheres = [];
+const sphereBodies = [];
+
+function createEsferasCaindo(){
+    
+    const mesh = new THREE.Mesh(sphereGeometry, sphereMaterial);
+    // Posição inicial das bolas caindo
+    mesh.position.set(-1 + (Math.random() - 0.5) * 0.2, 5 + Math.random() * 2, (Math.random() - 0.5) * 8);
+    mesh.castShadow = true;
+    scene.add(mesh);
+    spheres.push(mesh); // Adiciona ao array de meshes
+
+    const radius = 0.1; // Raio igual ao da geometria
+    const sphereBody = new CANNON.Body({
+        mass: 5, // Massa para a bolinha cair
+        material: spherePhysicsMaterial,
+        shape: new CANNON.Sphere(radius)
+    });
+
+    // Define contato entre bolinha e chão
+    const contactMaterial = new CANNON.ContactMaterial(
+        spherePhysicsMaterial,
+        spherePhysicsMaterial,
+        {
+            friction: 0.2,        // atrito (baixo para escorregar um pouco)
+            restitution: 0.7      // quique (0 = sem quique, 1 = quique perfeito)
+        }
+    );
+
+    sphereBody.position.copy(mesh.position);
+    sphereBody.linearDamping = 0.5;  // resistência ao movimento linear
+    sphereBody.angularDamping = 0.5; // resistência à rotação
+    world.addBody(sphereBody);
+    world.addContactMaterial(contactMaterial);
+    sphereBodies.push(sphereBody); // Adiciona ao array de corpos físicos
+}
+
+setInterval(() => {
+  createEsferasCaindo(); // sua função de criação de bolinhas
+}, 1000); // uma nova a cada 1 segundo
+
+
 // Plano e Cesta ( Mudar a Cesta Depois )
 const basketGeo = new THREE.CylinderGeometry(0.4, 0.1, 0.3, 32, 32)
 const basketMaterial = new THREE.MeshNormalMaterial()
@@ -110,10 +179,41 @@ window.addEventListener("mousemove", onMouseMove)
 window.addEventListener("mousedown", onMouseDown)
 window.addEventListener("mouseup", onMouseUp)
 
-
+var lastTime;
 // Render
 function animate() {
+    // Start the simulation loop
     requestAnimationFrame(animate)
+
+    
+    world.step(fixedTimeStep); // Atualiza a simulação física
+
+    // Sincronizar as meshes (Three.js) com os corpos físicos (Cannon.js)
+    for (let i = 0; i < spheres.length; i++) {
+
+        spheres[i].position.copy(sphereBodies[i].position);
+        spheres[i].quaternion.copy(sphereBodies[i].quaternion);
+
+        const pos = spheres[i].position;
+        // Remover bolinhas que ficaram fora do plano ao cair 
+        if (pos.y < -5 || pos.x < -5 || pos.x > 5 ||pos.z < -10 || pos.z > 10 ) 
+        { 
+            scene.remove(spheres[i]); // Remove a mesh da cena
+            world.removeBody(sphereBodies[i]); // Remove o corpo físico do mundo
+            spheres.splice(i, 1); // Remove do array de meshes
+            sphereBodies.splice(i, 1); // Remove do array de corpos físicos
+            i--; // Ajusta o índice do loop após a remoção
+        }
+        
+        // limita o número de bolinhas em cena, no máximo 15 no chão
+        if (spheres.length > 30) {
+            scene.remove(spheres[0]);
+            world.removeBody(sphereBodies[0]);
+            spheres.shift();
+            sphereBodies.shift();
+        }
+    }
+    
     renderer.render(scene, camera)
 }
 animate()
