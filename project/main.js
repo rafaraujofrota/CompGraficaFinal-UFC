@@ -1,55 +1,196 @@
+// Inicialização do jogo
+let gameStarted = false;
+let countdownStarted = false;
+let countdownTimer = null;
+let countdownValue = 3;
+let bolinhaInterval = null;
+
+const overlay = document.createElement("div");
+overlay.style.position = "fixed";
+overlay.style.top = "0";
+overlay.style.left = "0";
+overlay.style.width = "100%";
+overlay.style.height = "100%";
+overlay.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
+overlay.style.color = "white";
+overlay.style.display = "flex";
+overlay.style.flexDirection = "column";
+overlay.style.alignItems = "center";
+overlay.style.justifyContent = "center";
+overlay.style.fontSize = "48px";
+overlay.style.fontFamily = "sans-serif";
+overlay.style.zIndex = "9999";
+overlay.innerText = "Pressione qualquer tecla ou clique para iniciar";
+document.body.appendChild(overlay);
+
+function handleStartKey() {
+  if (countdownStarted || gameStarted) return;
+  countdownStarted = true;
+
+  let current = countdownValue;
+
+  overlay.innerText = `Bolinhas caindo em ${current}...`;
+  countdownTimer = setInterval(() => {
+    current--;
+    if (current > 0) {
+      overlay.innerText = `Bolinhas caindo em ${current}...`;
+    } else {
+      clearInterval(countdownTimer);
+      startGame();
+    }
+  }, 1000);
+}
+
+window.addEventListener("keydown", handleStartKey);
+window.addEventListener("mousedown", handleStartKey);
+
+function startGame() {
+  if (gameStarted) return;
+
+  gameStarted = true;
+  overlay.remove();
+  document.body.style.cursor = "none";
+
+  gameTimeRemaining = gameDuration;
+  timerDisplay.style.display = "block";
+  timerDisplay.innerText = `${gameTimeRemaining}s`;
+
+  gameTimerInterval = setInterval(() => {
+    gameTimeRemaining--;
+    timerDisplay.innerText = `${gameTimeRemaining}s`;
+
+    if (gameTimeRemaining <= 0) {
+      clearInterval(gameTimerInterval);
+      endGame();
+    }
+  }, 1000);
+
+  // Começa a gerar bolinhas
+  bolinhaInterval = setInterval(() => {
+    createEsferasCaindo();
+  }, 1000);
+}
+
+// Reiniciar jogo
+window.addEventListener("keydown", (e) => {
+  if (e.key.toLowerCase() === "r") {
+    resetGame();
+  }
+});
+
+function resetGame() {
+  // Para geração de bolinhas
+  clearInterval(bolinhaInterval);
+
+  // Remove bolinhas da cena e do mundo físico
+  for (let i = spheres.length - 1; i >= 0; i--) {
+    scene.remove(spheres[i]);
+    world.removeBody(sphereBodies[i]);
+    spheres.splice(i, 1);
+    sphereBodies.splice(i, 1);
+  }
+
+  // Reseta posição da cesta
+  basket.position.set(-1, -1.5, 0);
+
+  // Reseta variáveis
+  gameStarted = false;
+  countdownStarted = false;
+  countdownValue = 3;
+
+  // Exibe overlay de início novamente
+  overlay.innerText = "Pressione qualquer tecla ou clique para iniciar";
+  document.body.appendChild(overlay);
+  document.body.style.cursor = "default";
+}
+
+// Timer
+let gameDuration = 30; // segundos
+let gameTimeRemaining = gameDuration;
+let gameTimerInterval = null;
+
+const timerDisplay = document.createElement("div");
+timerDisplay.style.position = "fixed";
+timerDisplay.style.top = "20px";
+timerDisplay.style.left = "50%";
+timerDisplay.style.transform = "translateX(-50%)";
+timerDisplay.style.color = "white";
+timerDisplay.style.fontSize = "32px";
+timerDisplay.style.fontFamily = "sans-serif";
+timerDisplay.style.zIndex = "9998";
+timerDisplay.style.display = "none";
+document.body.appendChild(timerDisplay);
+
+// Finalizar jogo
+function endGame() {
+  clearInterval(bolinhaInterval);
+
+  // Oculta timer
+  timerDisplay.style.display = "none";
+
+  // Mostra mensagem de fim de jogo
+  overlay.innerText = "Fim do jogo! Pressione R para reiniciar";
+  document.body.appendChild(overlay);
+  document.body.style.cursor = "default";
+
+  gameStarted = false;
+}
+
 // Init
-const scene = new THREE.Scene()
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
-const renderer = new THREE.WebGLRenderer({ antialias: true })
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(
+  75,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  1000
+);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
 
-renderer.setSize(window.innerWidth, window.innerHeight)
-camera.position.set(2, 0, 0)
-camera.lookAt(new THREE.Vector3(0, 0, 0))
-renderer.shadowMapEnabled = true
-renderer.shadowMapType = THREE.PCFSoftShadowMap
+renderer.setSize(window.innerWidth, window.innerHeight);
+camera.position.set(2, 0, 0);
+camera.lookAt(new THREE.Vector3(0, 0, 0));
+renderer.shadowMapEnabled = true;
+renderer.shadowMapType = THREE.PCFSoftShadowMap;
 
-document.body.appendChild(renderer.domElement)
-scene.add(new THREE.AmbientLight(0x666666))
+document.body.appendChild(renderer.domElement);
+scene.add(new THREE.AmbientLight(0x666666));
 
-const light = new THREE.DirectionalLight(0x666666, 0.5)
-light.position.set(2, 8, 0)
-light.castShadow = true
-scene.add(light)
+const light = new THREE.DirectionalLight(0x666666, 0.5);
+light.position.set(2, 8, 0);
+light.castShadow = true;
+scene.add(light);
 
-light.shadowMapSizeWidth = 1024
-light.shadowMapSizeHeight = 1024
-light.shadowCameraNear = 0.5
-light.shadowCameraFar = 20
-light.shadowCameraLeft = -5
-light.shadowCameraRight = 5
-light.shadowCameraTop = 5
-light.shadowCameraBottom = -5
-
+light.shadowMapSizeWidth = 1024;
+light.shadowMapSizeHeight = 1024;
+light.shadowCameraNear = 0.5;
+light.shadowCameraFar = 20;
+light.shadowCameraLeft = -5;
+light.shadowCameraRight = 5;
+light.shadowCameraTop = 5;
+light.shadowCameraBottom = -5;
 
 // world
 var world = new CANNON.World();
 world.gravity.set(0, -9.82, 0); // gravidade da terra em m/s²
 
 var groundBody = new CANNON.Body({
-    mass: 0
+  mass: 0,
 });
-
 
 var groundShape = new CANNON.Plane();
 
-const sphereGeometry = new THREE.SphereGeometry(0.1, 16, 16); 
-const sphereMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff }); 
-const spherePhysicsMaterial = new CANNON.Material('sphereMaterial');
+const sphereGeometry = new THREE.SphereGeometry(0.1, 16, 16);
+const sphereMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
+const spherePhysicsMaterial = new CANNON.Material("sphereMaterial");
 
 groundBody.addShape(groundShape);
 
-groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1,0,0), -Math.PI / 2);
+groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
 groundBody.position.y = -2;
 groundBody.material = spherePhysicsMaterial;
 world.addBody(groundBody);
 
-var fixedTimeStep = 1.0 / 60.0; // 60 atualizações por segundo (60 Hz).
+var fixedTimeStep = 1.0 / 120.0; // 60 atualizações por segundo (60 Hz).
 var maxSubSteps = 3;
 
 // *** bolinhas ***
@@ -57,163 +198,294 @@ var maxSubSteps = 3;
 const spheres = [];
 const sphereBodies = [];
 
-function createEsferasCaindo(){
-    
-    const mesh = new THREE.Mesh(sphereGeometry, sphereMaterial);
-    // Posição inicial das bolas caindo
-    mesh.position.set(-1 + (Math.random() - 0.5) * 0.2, 5 + Math.random() * 2, (Math.random() - 0.5) * 8);
-    mesh.castShadow = true;
-    scene.add(mesh);
-    spheres.push(mesh); // Adiciona ao array de meshes
+function createEsferasCaindo() {
+  const mesh = new THREE.Mesh(sphereGeometry, sphereMaterial);
+  // Posição inicial das bolas caindo
+  mesh.position.set(
+    -1 + (Math.random() - 0.5) * 0.2,
+    5 + Math.random() * 2,
+    (Math.random() - 0.5) * 8
+  );
+  mesh.castShadow = true;
+  scene.add(mesh);
+  spheres.push(mesh); // Adiciona ao array de meshes
 
-    const radius = 0.1; // Raio igual ao da geometria
-    const sphereBody = new CANNON.Body({
-        mass: 5, // Massa para a bolinha cair
-        material: spherePhysicsMaterial,
-        shape: new CANNON.Sphere(radius)
-    });
+  const radius = 0.1; // Raio igual ao da geometria
+  const sphereBody = new CANNON.Body({
+    mass: 5, // Massa para a bolinha cair
+    material: spherePhysicsMaterial,
+    shape: new CANNON.Sphere(radius),
+  });
 
-    // Define contato entre bolinha e chão
-    const contactMaterial = new CANNON.ContactMaterial(
-        spherePhysicsMaterial,
-        spherePhysicsMaterial,
-        {
-            friction: 0.2,        // atrito (baixo para escorregar um pouco)
-            restitution: 0.7      // quique (0 = sem quique, 1 = quique perfeito)
-        }
-    );
+  // Define contato entre bolinha e chão
+  const contactMaterial = new CANNON.ContactMaterial(
+    spherePhysicsMaterial,
+    spherePhysicsMaterial,
+    {
+      friction: 0.2, // atrito (baixo para escorregar um pouco)
+      restitution: 0.7, // quique (0 = sem quique, 1 = quique perfeito)
+    }
+  );
 
-    sphereBody.position.copy(mesh.position);
-    sphereBody.linearDamping = 0.5;  // resistência ao movimento linear
-    sphereBody.angularDamping = 0.5; // resistência à rotação
-    world.addBody(sphereBody);
-    world.addContactMaterial(contactMaterial);
-    sphereBodies.push(sphereBody); // Adiciona ao array de corpos físicos
+  sphereBody.position.copy(mesh.position);
+  sphereBody.linearDamping = 0.5; // resistência ao movimento linear
+  sphereBody.angularDamping = 0.5; // resistência à rotação
+  world.addBody(sphereBody);
+  world.addContactMaterial(contactMaterial);
+  sphereBodies.push(sphereBody); // Adiciona ao array de corpos físicos
 }
-
-setInterval(() => {
-  createEsferasCaindo(); // sua função de criação de bolinhas
-}, 1000); // uma nova a cada 1 segundo
-
 
 // Plano e Cesta ( Mudar a Cesta Depois )
-const basketGeo = new THREE.CylinderGeometry(0.4, 0.1, 0.3, 32, 32)
-const basketMaterial = new THREE.MeshNormalMaterial()
-const basket = new THREE.Mesh(basketGeo, basketMaterial)
-basket.position.copy(new THREE.Vector3(-1, -1.5, 0))
+
+// const basketGeo = new THREE.CylinderGeometry(0.4, 0.1, 0.3, 32, 32);
+// const basketMaterial = new THREE.MeshNormalMaterial();
+// const basket = new THREE.Mesh(basketGeo, basketMaterial);
+// basket.position.copy(new THREE.Vector3(-1, -1.5, 0));
+// scene.add(basket);
+
+// basket.castShadow = true;
+// basket.receiveShadow = true;
+
+const basketWidth = 1;  // Diâmetro
+const basketDepth = 1;
+const wallThickness = 0.05;
+const wallHeight = 0.75;
+const bottomThickness = 0.05;
+const initialPosition = new CANNON.Vec3(-1, -1.5, 0);
+
+const basketMaterial = new CANNON.Material("basketMaterial");
+
+const contactMaterial = new CANNON.ContactMaterial(
+  basketMaterial,
+  spherePhysicsMaterial,
+  {
+    friction: 1.0,      // mais atrito
+    restitution: 0.3,   // menos quique
+  }
+);
+
+world.addContactMaterial(contactMaterial);
+
+// Corpo físico unificado da cesta
+const basketBody = new CANNON.Body({
+  mass: 0,
+  material: basketMaterial,
+  position: initialPosition.clone(),
+  type: CANNON.Body.KINEMATIC,
+});
+
+basketBody.name = "cesta";
+basketBody.updateMassProperties();
+let targetBasketPos = initialPosition.clone();
+
+// Fundo
+basketBody.addShape(
+  new CANNON.Box(new CANNON.Vec3(basketWidth / 2, bottomThickness, basketDepth / 2)),
+  new CANNON.Vec3(0, -wallHeight / 2, 0)
+);
+// Paredes
+basketBody.addShape(
+  new CANNON.Box(new CANNON.Vec3(wallThickness, wallHeight / 2, basketDepth / 2)),
+  new CANNON.Vec3(-basketWidth / 2 + wallThickness, 0, 0)
+);
+
+basketBody.addShape(
+  new CANNON.Box(new CANNON.Vec3(wallThickness, wallHeight / 2, basketDepth / 2)),
+  new CANNON.Vec3(basketWidth / 2 - wallThickness, 0, 0)
+);
+
+basketBody.addShape(
+  new CANNON.Box(new CANNON.Vec3(basketWidth / 2, wallHeight / 2, wallThickness)),
+  new CANNON.Vec3(0, 0, basketDepth / 2 - wallThickness)
+);
+
+basketBody.addShape(
+  new CANNON.Box(new CANNON.Vec3(basketWidth / 2, wallHeight / 2, wallThickness)),
+  new CANNON.Vec3(0, 0, -basketDepth / 2 + wallThickness)
+);
+
+world.addBody(basketBody);
+
+const basket = new THREE.Object3D();
+
+const wallMaterial = new THREE.MeshNormalMaterial();
+
+// Fundo
+const bottom = new THREE.Mesh(
+  new THREE.BoxGeometry(basketWidth, bottomThickness * 2, basketDepth),
+  wallMaterial
+);
+bottom.position.set(0, -wallHeight / 2, 0);
+basket.add(bottom);
+
+// Laterais
+const frontMaterial = new THREE.MeshBasicMaterial({
+  color: 0xffffff,
+  transparent: true,
+  opacity: 0.3,
+});
+
+const front = new THREE.Mesh(
+  new THREE.BoxGeometry(wallThickness * 2, wallHeight, basketDepth),
+  frontMaterial
+);
+front.position.set(basketWidth / 2 - wallThickness, 0, 0);
+basket.add(front);
+
+const back = new THREE.Mesh(
+  new THREE.BoxGeometry(wallThickness * 2, wallHeight, basketDepth),
+  wallMaterial
+);
+back.position.set(-basketWidth / 2 + wallThickness, 0, 0);
+basket.add(back);
+
+const left = new THREE.Mesh(
+  new THREE.BoxGeometry(basketWidth, wallHeight, wallThickness * 2),
+  wallMaterial
+);
+left.position.set(0, 0, basketDepth / 2 - wallThickness);
+basket.add(left);
+
+const right = new THREE.Mesh(
+  new THREE.BoxGeometry(basketWidth, wallHeight, wallThickness * 2),
+  wallMaterial
+);
+right.position.set(0, 0, -basketDepth / 2 + wallThickness);
+basket.add(right);
+
+basket.position.copy(basketBody.position);
 scene.add(basket);
 
-basket.castShadow = true
-basket.receiveShadow = true
+const planeGeo = new THREE.PlaneGeometry(10, 20);
+const planeMaterial = new THREE.MeshPhongMaterial();
+const plane = new THREE.Mesh(planeGeo, planeMaterial);
+plane.position.copy(new THREE.Vector3(0, -2, 0));
+plane.rotation.x = -Math.PI / 2;
+scene.add(plane);
 
-const planeGeo = new THREE.PlaneGeometry(10, 20)
-const planeMaterial = new THREE.MeshPhongMaterial()
-const plane = new THREE.Mesh(planeGeo, planeMaterial)
-plane.position.copy(new THREE.Vector3(0, -2, 0))
-plane.rotation.x = -Math.PI / 2
-scene.add(plane)
-
-plane.castShadow = true
-plane.receiveShadow = true
+plane.castShadow = true;
+plane.receiveShadow = true;
 
 // Mover Cesta
-const mouse = new THREE.Vector3(0, 0, 0.5)
-const grabPlane = new THREE.Plane()
-const grabOffset = new THREE.Vector3()
-const intersection = new THREE.Vector3()
-const projector = new THREE.Projector()
-let raycast = null
-let holding = false
-
+const mouse = new THREE.Vector3(0, 0, 0.5);
+const grabPlane = new THREE.Plane();
+const intersection = new THREE.Vector3();
+const projector = new THREE.Projector();
 
 function normalizeMousePosition(e) {
-    const rect = renderer.domElement.getBoundingClientRect();
-    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  const rect = renderer.domElement.getBoundingClientRect();
+  mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 }
 
-function onMouseDown(e){
-    normalizeMousePosition(e)
-    raycast = projector.pickingRay(mouse, camera)
-    const intersections = raycast.intersectObjects(scene.children, false)
+function onMouseMove(e) {
+  if (!gameStarted) return;
+  normalizeMousePosition(e);
 
-    if(intersections.length > 0) {
-        if(intersections[0].object == basket) {
-            holding = true
+  const raycast = projector.pickingRay(mouse, camera);
 
-            let normal = new THREE.Vector3(0, 0, -1);
-            normal.applyQuaternion(camera.quaternion);
+  // Plano sempre perpendicular à câmera, passando pela cesta
+  let normal = new THREE.Vector3(0, 0, -1);
+  normal.applyQuaternion(camera.quaternion);
 
-            grabPlane.setFromNormalAndCoplanarPoint(
-                normal,
-                intersections[0].point
-            )
+  grabPlane.setFromNormalAndCoplanarPoint(normal, basket.position);
 
-            grabOffset.copy(intersections[0].point).sub(basket.position)
-        }
-    }
+  if (raycast.ray.intersectPlane(grabPlane, intersection)) {
+    // Limita posição
+    intersection.x = Math.min(1, Math.max(-1, intersection.x));
+    intersection.y = Math.min(-0.2, Math.max(-1.5, intersection.y));
+    intersection.z = Math.min(3.4, Math.max(-3.4, intersection.z));
+
+    moveBasketTo(intersection);
+  }
 }
 
-function onMouseMove(e){
-    if(!holding) return
-
-    normalizeMousePosition(e)
-    raycast = projector.pickingRay(mouse, camera)
-    if(raycast.ray.intersectPlane(grabPlane, intersection)) {
-        let newPos = intersection.clone().sub(grabOffset)
-
-        // Limitando o Grab
-        newPos.x = Math.min(1, Math.max(-1, newPos.x));
-        newPos.y = Math.min(-0.2, Math.max(-1.5, newPos.y));
-        newPos.z = Math.min(3.4, Math.max(-3.4, newPos.z));
-
-        basket.position.copy(newPos)
-    }
+function moveBasketTo(targetPos) {
+  targetBasketPos.copy(targetPos);
 }
 
-function onMouseUp(){
-    holding = false
-}
+window.addEventListener("mousemove", onMouseMove);
 
-window.addEventListener("mousemove", onMouseMove)
-window.addEventListener("mousedown", onMouseDown)
-window.addEventListener("mouseup", onMouseUp)
+
+
+// Bolinha desaparecer após colidir com a cesta
+
+// const explodingSpheres = new Set();
+
+// basketBody.addEventListener("collide", function (e) {
+//   const bola = e.body;
+//   if (!sphereBodies.includes(bola)) return;
+//   if (explodingSpheres.has(bola)) return;
+
+//   explodingSpheres.add(bola);
+
+//   setTimeout(() => {
+//     const i = sphereBodies.indexOf(bola);
+//     if (i !== -1) {
+//       scene.remove(spheres[i]);
+//       world.removeBody(bola);
+//       spheres.splice(i, 1);
+//       sphereBodies.splice(i, 1);
+//     }
+//     explodingSpheres.delete(bola);
+//   }, 500);
+// });
 
 var lastTime;
 // Render
 function animate() {
-    // Start the simulation loop
-    requestAnimationFrame(animate)
+  // Start the simulation loop
+  requestAnimationFrame(animate);
 
+  if (gameStarted) {
+    const delta = new CANNON.Vec3();
+    targetBasketPos.vsub(basketBody.position, delta);
+
+    // Limitar velocidade (distância máxima por frame)
+    const maxSpeed = 0.1; // ajuste o valor conforme desejado
+    if (delta.length() > maxSpeed) {
+      delta.normalize();
+      delta.scale(maxSpeed, delta);
+    }
+
+    // Atualizar posição com delta limitado
+    basketBody.position.vadd(delta, basketBody.position);
+
+    // Zerar velocidades para corpo kinematic
+    basketBody.velocity.set(0, 0, 0);
+    basketBody.angularVelocity.set(0, 0, 0);
     
     world.step(fixedTimeStep); // Atualiza a simulação física
+    
 
     // Sincronizar as meshes (Three.js) com os corpos físicos (Cannon.js)
     for (let i = 0; i < spheres.length; i++) {
+      spheres[i].position.copy(sphereBodies[i].position);
+      spheres[i].quaternion.copy(sphereBodies[i].quaternion);
 
-        spheres[i].position.copy(sphereBodies[i].position);
-        spheres[i].quaternion.copy(sphereBodies[i].quaternion);
+      const pos = spheres[i].position;
+      // Remover bolinhas que ficaram fora do plano ao cair
+      if (pos.y < -5 || pos.x < -5 || pos.x > 5 || pos.z < -10 || pos.z > 10) {
+        scene.remove(spheres[i]); // Remove a mesh da cena
+        world.removeBody(sphereBodies[i]); // Remove o corpo físico do mundo
+        spheres.splice(i, 1); // Remove do array de meshes
+        sphereBodies.splice(i, 1); // Remove do array de corpos físicos
+        i--; // Ajusta o índice do loop após a remoção
+      }
 
-        const pos = spheres[i].position;
-        // Remover bolinhas que ficaram fora do plano ao cair 
-        if (pos.y < -5 || pos.x < -5 || pos.x > 5 ||pos.z < -10 || pos.z > 10 ) 
-        { 
-            scene.remove(spheres[i]); // Remove a mesh da cena
-            world.removeBody(sphereBodies[i]); // Remove o corpo físico do mundo
-            spheres.splice(i, 1); // Remove do array de meshes
-            sphereBodies.splice(i, 1); // Remove do array de corpos físicos
-            i--; // Ajusta o índice do loop após a remoção
-        }
-        
-        // limita o número de bolinhas em cena, no máximo 15 no chão
-        if (spheres.length > 30) {
-            scene.remove(spheres[0]);
-            world.removeBody(sphereBodies[0]);
-            spheres.shift();
-            sphereBodies.shift();
-        }
+      // limita o número de bolinhas em cena, no máximo 15 no chão
+      if (spheres.length > 30) {
+        scene.remove(spheres[0]);
+        world.removeBody(sphereBodies[0]);
+        spheres.shift();
+        sphereBodies.shift();
+      }
     }
-    
-    renderer.render(scene, camera)
+  }
+
+  basket.position.copy(basketBody.position);
+  basket.quaternion.copy(basketBody.quaternion);
+
+  renderer.render(scene, camera);
 }
-animate()
+animate();
