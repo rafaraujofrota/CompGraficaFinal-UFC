@@ -51,6 +51,10 @@ function startGame() {
   overlay.remove();
   document.body.style.cursor = "none";
 
+  score = 0;
+  scoreDisplay.innerText = `Pontos: ${score}`;
+  scoreDisplay.style.display = "block";
+
   gameTimeRemaining = gameDuration;
   timerDisplay.style.display = "block";
   timerDisplay.innerText = `${gameTimeRemaining}s`;
@@ -65,7 +69,6 @@ function startGame() {
     }
   }, 1000);
 
-  // Começa a gerar bolinhas
   bolinhaInterval = setInterval(() => {
     createEsferasCaindo();
   }, 1000);
@@ -109,6 +112,21 @@ let gameDuration = 30; // segundos
 let gameTimeRemaining = gameDuration;
 let gameTimerInterval = null;
 
+let score = 0;
+
+const scoreDisplay = document.createElement("div");
+scoreDisplay.style.position = "fixed";
+scoreDisplay.style.top = "60px";
+scoreDisplay.style.left = "50%";
+scoreDisplay.style.transform = "translateX(-50%)";
+scoreDisplay.style.color = "white";
+scoreDisplay.style.fontSize = "32px";
+scoreDisplay.style.fontFamily = "sans-serif";
+scoreDisplay.style.zIndex = "9998";
+scoreDisplay.style.display = "none";
+document.body.appendChild(scoreDisplay);
+
+
 const timerDisplay = document.createElement("div");
 timerDisplay.style.position = "fixed";
 timerDisplay.style.top = "20px";
@@ -124,11 +142,9 @@ document.body.appendChild(timerDisplay);
 // Finalizar jogo
 function endGame() {
   clearInterval(bolinhaInterval);
-
-  // Oculta timer
   timerDisplay.style.display = "none";
+  scoreDisplay.style.display = "none";
 
-  // Mostra mensagem de fim de jogo
   overlay.innerText = "Fim do jogo! Pressione R para reiniciar";
   document.body.appendChild(overlay);
   document.body.style.cursor = "default";
@@ -432,6 +448,21 @@ window.addEventListener("mousemove", onMouseMove);
 // });
 
 var lastTime;
+
+basketBody.addEventListener("collide", function (e) {
+  const bola = e.body;
+  const i = sphereBodies.indexOf(bola);
+  if (i !== -1) {
+    score += 10;
+    scoreDisplay.innerText = `Pontos: ${score}`;
+    scene.remove(spheres[i]);
+    world.removeBody(bola);
+    spheres.splice(i, 1);
+    sphereBodies.splice(i, 1);
+  }
+});
+
+
 // Render
 function animate() {
   // Start the simulation loop
