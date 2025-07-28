@@ -1,3 +1,17 @@
+const guiControls = {
+  gravity: -9.82,
+  ballFrequency: 1000, // Frequência em milissegundos
+};
+
+const gui = new dat.GUI();
+
+// Controle de Gravidade
+gui.add(guiControls, 'gravity', -20, 0).name('Gravidade (Y)').onChange(value => {
+  if (world) {
+    world.gravity.y = value;
+  }
+});
+
 // Inicialização do jogo
 let gameStarted = false;
 let countdownStarted = false;
@@ -198,6 +212,13 @@ var groundShape = new CANNON.Plane();
 const sphereGeometry = new THREE.SphereGeometry(0.1, 16, 16);
 const sphereMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
 const spherePhysicsMaterial = new CANNON.Material("sphereMaterial");
+ // Dourado brilhante para a bolinha especial
+const specialSphereMaterial = new THREE.MeshPhongMaterial({
+  color: 0xffff00,       
+  emissive: 0xffcc00,    
+  emissiveIntensity: 1,  
+  shininess: 150         
+});
 
 groundBody.addShape(groundShape);
 
@@ -217,12 +238,17 @@ const sphereBodies = [];
 function createEsferasCaindo() {
   const materiais = [
     new THREE.MeshPhongMaterial({ color: 0xffffff, opacity: 0.6, transparent: true }), // vidro
-    new THREE.MeshPhongMaterial({ color: 0xaaaaaa, shininess: 100 }), // "metalizado" visualmente
+    new THREE.MeshPhongMaterial({ color: 0xaaaaaa, shininess: 100 }), // "metalizado"
     new THREE.MeshPhongMaterial({ color: 0xff4444 }), // plástico vermelho
   ];
 
-  const materialAleatorio = materiais[Math.floor(Math.random() * materiais.length)];
-  const mesh = new THREE.Mesh(sphereGeometry, materialAleatorio);
+  // Determina se a bolinha será especial (20% de chance)
+  const isSpecial = Math.random() < 0.2; 
+
+  const material = isSpecial ? specialSphereMaterial : materiais[Math.floor(Math.random() * materiais.length)];
+  const points = isSpecial ? 50 : 10; // Define os pontos
+
+  const mesh = new THREE.Mesh(sphereGeometry, material);
 
   mesh.position.set(
     -1 + (Math.random() - 0.5) * 0.2,
@@ -240,6 +266,9 @@ function createEsferasCaindo() {
     shape: new CANNON.Sphere(radius),
   });
 
+  // Anexamos os pontos ao corpo físico da bolinha
+  sphereBody.userData = { points: points };
+
   const contactMaterial = new CANNON.ContactMaterial(
     spherePhysicsMaterial,
     spherePhysicsMaterial,
@@ -256,7 +285,6 @@ function createEsferasCaindo() {
   world.addContactMaterial(contactMaterial);
   sphereBodies.push(sphereBody);
 }
-
 
 // Plano e Cesta ( Mudar a Cesta Depois )
 
@@ -460,15 +488,17 @@ basketBody.addEventListener("collide", function (e) {
   const bola = e.body;
   const i = sphereBodies.indexOf(bola);
   if (i !== -1) {
-    score += 10;
+    // Lê os pontos do userData da bolinha. Se não existir, soma 10 por padrão.
+    score += bola.userData?.points || 10; 
     scoreDisplay.innerText = `Pontos: ${score}`;
+
+    // O resto da lógica para remover a bolinha permanece igual
     scene.remove(spheres[i]);
     world.removeBody(bola);
     spheres.splice(i, 1);
     sphereBodies.splice(i, 1);
   }
 });
-
 
 // Render
 function animate() {
