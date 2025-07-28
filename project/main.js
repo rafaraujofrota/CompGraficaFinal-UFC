@@ -215,8 +215,15 @@ const spheres = [];
 const sphereBodies = [];
 
 function createEsferasCaindo() {
-  const mesh = new THREE.Mesh(sphereGeometry, sphereMaterial);
-  // Posição inicial das bolas caindo
+  const materiais = [
+    new THREE.MeshPhongMaterial({ color: 0xffffff, opacity: 0.6, transparent: true }), // vidro
+    new THREE.MeshPhongMaterial({ color: 0xaaaaaa, shininess: 100 }), // "metalizado" visualmente
+    new THREE.MeshPhongMaterial({ color: 0xff4444 }), // plástico vermelho
+  ];
+
+  const materialAleatorio = materiais[Math.floor(Math.random() * materiais.length)];
+  const mesh = new THREE.Mesh(sphereGeometry, materialAleatorio);
+
   mesh.position.set(
     -1 + (Math.random() - 0.5) * 0.2,
     5 + Math.random() * 2,
@@ -224,32 +231,32 @@ function createEsferasCaindo() {
   );
   mesh.castShadow = true;
   scene.add(mesh);
-  spheres.push(mesh); // Adiciona ao array de meshes
+  spheres.push(mesh);
 
-  const radius = 0.1; // Raio igual ao da geometria
+  const radius = 0.1;
   const sphereBody = new CANNON.Body({
-    mass: 5, // Massa para a bolinha cair
+    mass: 5,
     material: spherePhysicsMaterial,
     shape: new CANNON.Sphere(radius),
   });
 
-  // Define contato entre bolinha e chão
   const contactMaterial = new CANNON.ContactMaterial(
     spherePhysicsMaterial,
     spherePhysicsMaterial,
     {
-      friction: 0.2, // atrito (baixo para escorregar um pouco)
-      restitution: 0.7, // quique (0 = sem quique, 1 = quique perfeito)
+      friction: 0.2,
+      restitution: 0.7,
     }
   );
 
   sphereBody.position.copy(mesh.position);
-  sphereBody.linearDamping = 0.5; // resistência ao movimento linear
-  sphereBody.angularDamping = 0.5; // resistência à rotação
+  sphereBody.linearDamping = 0.5;
+  sphereBody.angularDamping = 0.5;
   world.addBody(sphereBody);
   world.addContactMaterial(contactMaterial);
-  sphereBodies.push(sphereBody); // Adiciona ao array de corpos físicos
+  sphereBodies.push(sphereBody);
 }
+
 
 // Plano e Cesta ( Mudar a Cesta Depois )
 
