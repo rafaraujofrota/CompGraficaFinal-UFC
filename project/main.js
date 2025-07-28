@@ -1,3 +1,17 @@
+const guiControls = {
+  gravity: -9.82,
+  ballFrequency: 1000, // Frequência em milissegundos
+};
+
+const gui = new dat.GUI();
+
+// Controle de Gravidade
+gui.add(guiControls, 'gravity', -20, 0).name('Gravidade (Y)').onChange(value => {
+  if (world) {
+    world.gravity.y = value;
+  }
+});
+
 // Inicialização do jogo
 let gameStarted = false;
 let countdownStarted = false;
@@ -51,6 +65,10 @@ function startGame() {
   overlay.remove();
   document.body.style.cursor = "none";
 
+  score = 0;
+  scoreDisplay.innerText = `Pontos: ${score}`;
+  scoreDisplay.style.display = "block";
+
   gameTimeRemaining = gameDuration;
   timerDisplay.style.display = "block";
   timerDisplay.innerText = `${gameTimeRemaining}s`;
@@ -65,7 +83,6 @@ function startGame() {
     }
   }, 1000);
 
-  // Começa a gerar bolinhas
   bolinhaInterval = setInterval(() => {
     createEsferasCaindo();
   }, 1000);
@@ -109,6 +126,21 @@ let gameDuration = 30; // segundos
 let gameTimeRemaining = gameDuration;
 let gameTimerInterval = null;
 
+let score = 0;
+
+const scoreDisplay = document.createElement("div");
+scoreDisplay.style.position = "fixed";
+scoreDisplay.style.top = "60px";
+scoreDisplay.style.left = "50%";
+scoreDisplay.style.transform = "translateX(-50%)";
+scoreDisplay.style.color = "white";
+scoreDisplay.style.fontSize = "32px";
+scoreDisplay.style.fontFamily = "sans-serif";
+scoreDisplay.style.zIndex = "9998";
+scoreDisplay.style.display = "none";
+document.body.appendChild(scoreDisplay);
+
+
 const timerDisplay = document.createElement("div");
 timerDisplay.style.position = "fixed";
 timerDisplay.style.top = "20px";
@@ -124,11 +156,9 @@ document.body.appendChild(timerDisplay);
 // Finalizar jogo
 function endGame() {
   clearInterval(bolinhaInterval);
-
-  // Oculta timer
   timerDisplay.style.display = "none";
+  scoreDisplay.style.display = "none";
 
-  // Mostra mensagem de fim de jogo
   overlay.innerText = "Fim do jogo! Pressione R para reiniciar";
   document.body.appendChild(overlay);
   document.body.style.cursor = "default";
@@ -182,6 +212,13 @@ var groundShape = new CANNON.Plane();
 const sphereGeometry = new THREE.SphereGeometry(0.1, 16, 16);
 const sphereMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
 const spherePhysicsMaterial = new CANNON.Material("sphereMaterial");
+ // Dourado brilhante para a bolinha especial
+const specialSphereMaterial = new THREE.MeshPhongMaterial({
+  color: 0xffff00,       
+  emissive: 0xffcc00,    
+  emissiveIntensity: 1,  
+  shininess: 150         
+});
 
 groundBody.addShape(groundShape);
 
@@ -199,8 +236,20 @@ const spheres = [];
 const sphereBodies = [];
 
 function createEsferasCaindo() {
-  const mesh = new THREE.Mesh(sphereGeometry, sphereMaterial);
-  // Posição inicial das bolas caindo
+  const materiais = [
+    new THREE.MeshPhongMaterial({ color: 0xffffff, opacity: 0.6, transparent: true }), // vidro
+    new THREE.MeshPhongMaterial({ color: 0xaaaaaa, shininess: 100 }), // "metalizado"
+    new THREE.MeshPhongMaterial({ color: 0xff4444 }), // plástico vermelho
+  ];
+
+  // Determina se a bolinha será especial (20% de chance)
+  const isSpecial = Math.random() < 0.2; 
+
+  const material = isSpecial ? specialSphereMaterial : materiais[Math.floor(Math.random() * materiais.length)];
+  const points = isSpecial ? 50 : 10; // Define os pontos
+
+  const mesh = new THREE.Mesh(sphereGeometry, material);
+
   mesh.position.set(
     -1 + (Math.random() - 0.5) * 0.2,
     5 + Math.random() * 2,
@@ -208,31 +257,33 @@ function createEsferasCaindo() {
   );
   mesh.castShadow = true;
   scene.add(mesh);
-  spheres.push(mesh); // Adiciona ao array de meshes
+  spheres.push(mesh);
 
-  const radius = 0.1; // Raio igual ao da geometria
+  const radius = 0.1;
   const sphereBody = new CANNON.Body({
-    mass: 5, // Massa para a bolinha cair
+    mass: 5,
     material: spherePhysicsMaterial,
     shape: new CANNON.Sphere(radius),
   });
 
-  // Define contato entre bolinha e chão
+  // Anexamos os pontos ao corpo físico da bolinha
+  sphereBody.userData = { points: points };
+
   const contactMaterial = new CANNON.ContactMaterial(
     spherePhysicsMaterial,
     spherePhysicsMaterial,
     {
-      friction: 0.2, // atrito (baixo para escorregar um pouco)
-      restitution: 0.7, // quique (0 = sem quique, 1 = quique perfeito)
+      friction: 0.2,
+      restitution: 0.7,
     }
   );
 
   sphereBody.position.copy(mesh.position);
-  sphereBody.linearDamping = 0.5; // resistência ao movimento linear
-  sphereBody.angularDamping = 0.5; // resistência à rotação
+  sphereBody.linearDamping = 0.5;
+  sphereBody.angularDamping = 0.5;
   world.addBody(sphereBody);
   world.addContactMaterial(contactMaterial);
-  sphereBodies.push(sphereBody); // Adiciona ao array de corpos físicos
+  sphereBodies.push(sphereBody);
 }
 
 // Plano e Cesta ( Mudar a Cesta Depois )
@@ -432,6 +483,23 @@ window.addEventListener("mousemove", onMouseMove);
 // });
 
 var lastTime;
+
+basketBody.addEventListener("collide", function (e) {
+  const bola = e.body;
+  const i = sphereBodies.indexOf(bola);
+  if (i !== -1) {
+    // Lê os pontos do userData da bolinha. Se não existir, soma 10 por padrão.
+    score += bola.userData?.points || 10; 
+    scoreDisplay.innerText = `Pontos: ${score}`;
+
+    // O resto da lógica para remover a bolinha permanece igual
+    scene.remove(spheres[i]);
+    world.removeBody(bola);
+    spheres.splice(i, 1);
+    sphereBodies.splice(i, 1);
+  }
+});
+
 // Render
 function animate() {
   // Start the simulation loop
