@@ -134,6 +134,8 @@ scoreDisplay.style.top = "60px";
 scoreDisplay.style.left = "50%";
 scoreDisplay.style.transform = "translateX(-50%)";
 scoreDisplay.style.color = "white";
+scoreDisplay.style.backgroundColor = "black";
+scoreDisplay.style.padding = "4px";
 scoreDisplay.style.fontSize = "32px";
 scoreDisplay.style.fontFamily = "sans-serif";
 scoreDisplay.style.zIndex = "9998";
@@ -147,6 +149,8 @@ timerDisplay.style.top = "20px";
 timerDisplay.style.left = "50%";
 timerDisplay.style.transform = "translateX(-50%)";
 timerDisplay.style.color = "white";
+timerDisplay.style.backgroundColor = "black";
+timerDisplay.style.padding = "4px";
 timerDisplay.style.fontSize = "32px";
 timerDisplay.style.fontFamily = "sans-serif";
 timerDisplay.style.zIndex = "9998";
@@ -185,7 +189,7 @@ renderer.shadowMapType = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 scene.add(new THREE.AmbientLight(0x666666));
 
-const light = new THREE.DirectionalLight(0x666666, 0.5);
+const light = new THREE.DirectionalLight(0x666666, 1);
 light.position.set(2, 8, 0);
 light.castShadow = true;
 scene.add(light);
@@ -209,14 +213,26 @@ var groundBody = new CANNON.Body({
 
 var groundShape = new CANNON.Plane();
 
+const skyBoxGeo = new THREE.BoxGeometry(38, 32, 32)
+const skyBoxMaterial = new THREE.MeshBasicMaterial({
+    map: THREE.ImageUtils.loadTexture('./textures/background.png'),
+    side: 2
+})
+
+scene.add(new THREE.Mesh(skyBoxGeo, skyBoxMaterial))
+
 const sphereGeometry = new THREE.SphereGeometry(0.1, 16, 16);
 const sphereMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
 const spherePhysicsMaterial = new CANNON.Material("sphereMaterial");
- // Dourado brilhante para a bolinha especial
-const specialSphereMaterial = new THREE.MeshPhongMaterial({
-  color: 0xffff00,       
-  emissive: 0xffcc00,    
-  emissiveIntensity: 1,  
+
+let sTexture = THREE.ImageUtils.loadTexture('./textures/grape.png')
+
+const specialSphereMaterial = new THREE.MeshPhongMaterial({      
+  emissive: 0xffff00,    
+  emissiveIntensity: 10,  
+  specular: 0xdddddd,
+  reflectivity: 2,
+  map: sTexture,
   shininess: 150         
 });
 
@@ -230,16 +246,24 @@ world.addBody(groundBody);
 var fixedTimeStep = 1.0 / 120.0; // 60 atualizações por segundo (60 Hz).
 var maxSubSteps = 3;
 
+const now = performance.now() / 1000; // em segundos
+const deltaTime = lastTime ? now - lastTime : fixedTimeStep;
+lastTime = now;
+
 // *** bolinhas ***
 
 const spheres = [];
 const sphereBodies = [];
 
 function createEsferasCaindo() {
-  const materiais = [
-    new THREE.MeshPhongMaterial({ color: 0xffffff, opacity: 0.6, transparent: true }), // vidro
-    new THREE.MeshPhongMaterial({ color: 0xaaaaaa, shininess: 100 }), // "metalizado"
-    new THREE.MeshPhongMaterial({ color: 0xff4444 }), // plástico vermelho
+    const materiais = [
+        new THREE.MeshPhongMaterial(
+            { opacity: 0.3, transparent: true, map: sTexture }
+        ), // Vidro
+        new THREE.MeshPhongMaterial(
+            { shininess: 150, map: sTexture, specular: 0x222222 }
+        ), // Polida 
+        new THREE.MeshPhongMaterial({ emissive: 0x660066, map: sTexture }) // Brilhante
   ];
 
   // Determina se a bolinha será especial (20% de chance)
@@ -286,17 +310,6 @@ function createEsferasCaindo() {
   sphereBodies.push(sphereBody);
 }
 
-// Plano e Cesta ( Mudar a Cesta Depois )
-
-// const basketGeo = new THREE.CylinderGeometry(0.4, 0.1, 0.3, 32, 32);
-// const basketMaterial = new THREE.MeshNormalMaterial();
-// const basket = new THREE.Mesh(basketGeo, basketMaterial);
-// basket.position.copy(new THREE.Vector3(-1, -1.5, 0));
-// scene.add(basket);
-
-// basket.castShadow = true;
-// basket.receiveShadow = true;
-
 const basketWidth = 1;  // Diâmetro
 const basketDepth = 1;
 const wallThickness = 0.05;
@@ -330,8 +343,10 @@ basketBody.updateMassProperties();
 let targetBasketPos = initialPosition.clone();
 
 // Fundo
+const basketBottom = new CANNON.Box(new CANNON.Vec3(basketWidth / 2, bottomThickness, basketDepth / 2))
+
 basketBody.addShape(
-  new CANNON.Box(new CANNON.Vec3(basketWidth / 2, bottomThickness, basketDepth / 2)),
+  basketBottom,
   new CANNON.Vec3(0, -wallHeight / 2, 0)
 );
 // Paredes
@@ -359,7 +374,9 @@ world.addBody(basketBody);
 
 const basket = new THREE.Object3D();
 
-const wallMaterial = new THREE.MeshNormalMaterial();
+const wallMaterial = new THREE.MeshPhongMaterial({ 
+    map: THREE.ImageUtils.loadTexture('./textures/wood.png')
+});
 
 // Fundo
 const bottom = new THREE.Mesh(
@@ -373,7 +390,7 @@ basket.add(bottom);
 const frontMaterial = new THREE.MeshBasicMaterial({
   color: 0xffffff,
   transparent: true,
-  opacity: 0.3,
+  opacity: 0.1,
 });
 
 const front = new THREE.Mesh(
@@ -408,7 +425,9 @@ basket.position.copy(basketBody.position);
 scene.add(basket);
 
 const planeGeo = new THREE.PlaneGeometry(10, 20);
-const planeMaterial = new THREE.MeshPhongMaterial();
+const planeMaterial = new THREE.MeshPhongMaterial({
+    map: THREE.ImageUtils.loadTexture('./textures/grass.jpg')
+});
 const plane = new THREE.Mesh(planeGeo, planeMaterial);
 plane.position.copy(new THREE.Vector3(0, -2, 0));
 plane.rotation.x = -Math.PI / 2;
@@ -457,37 +476,18 @@ function moveBasketTo(targetPos) {
 
 window.addEventListener("mousemove", onMouseMove);
 
-
-
-// Bolinha desaparecer após colidir com a cesta
-
-// const explodingSpheres = new Set();
-
-// basketBody.addEventListener("collide", function (e) {
-//   const bola = e.body;
-//   if (!sphereBodies.includes(bola)) return;
-//   if (explodingSpheres.has(bola)) return;
-
-//   explodingSpheres.add(bola);
-
-//   setTimeout(() => {
-//     const i = sphereBodies.indexOf(bola);
-//     if (i !== -1) {
-//       scene.remove(spheres[i]);
-//       world.removeBody(bola);
-//       spheres.splice(i, 1);
-//       sphereBodies.splice(i, 1);
-//     }
-//     explodingSpheres.delete(bola);
-//   }, 500);
-// });
-
 var lastTime;
 
 basketBody.addEventListener("collide", function (e) {
   const bola = e.body;
   const i = sphereBodies.indexOf(bola);
-  if (i !== -1) {
+
+  const contact = e.contact;
+
+  const wasWithBottom = contact.bi === basketBody && contact.si === basketBottom ||
+                        contact.bj === basketBody && contact.sj === basketBottom;
+
+  if (i !== -1 && wasWithBottom) {
     // Lê os pontos do userData da bolinha. Se não existir, soma 10 por padrão.
     score += bola.userData?.points || 10; 
     scoreDisplay.innerText = `Pontos: ${score}`;
@@ -522,8 +522,7 @@ function animate() {
     // Zerar velocidades para corpo kinematic
     basketBody.velocity.set(0, 0, 0);
     basketBody.angularVelocity.set(0, 0, 0);
-    
-    world.step(fixedTimeStep); // Atualiza a simulação física
+    world.step(fixedTimeStep, deltaTime, maxSubSteps); // Atualiza a simulação física
     
 
     // Sincronizar as meshes (Three.js) com os corpos físicos (Cannon.js)
