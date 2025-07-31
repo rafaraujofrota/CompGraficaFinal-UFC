@@ -37,11 +37,59 @@ overlay.style.zIndex = "9999";
 overlay.innerText = "Pressione qualquer tecla ou clique para iniciar";
 document.body.appendChild(overlay);
 
+const gameSong = new Audio("./sounds/tema.mp3");
+gameSong.volume = 0.3
+
+let audioContext;
+let bubbleSoundBuffer;
+
+function initAudio() {
+    if (!audioContext) {
+        try {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            loadBubbleSound('./sounds/bubble-pop.mp3');
+        } catch (e) {
+            console.warn("Web Audio API não é suportada neste navegador.");
+        }
+    }
+}
+
+function loadBubbleSound(url) {
+    const request = new XMLHttpRequest();
+    request.open('GET', url, true);
+    request.responseType = 'arraybuffer';
+
+    request.onload = function() {
+        audioContext.decodeAudioData(request.response, function(buffer) {
+            bubbleSoundBuffer = buffer;
+        }, function(e) {
+            console.error("Erro ao decodificar dados de áudio:", e);
+        });
+    };
+    request.onerror = function() {
+        console.error("Erro ao carregar o arquivo de áudio.");
+    };
+    request.send();
+}
+
+window.addEventListener('click', initAudio);
+
+function playBubbleSound() {
+    if (bubbleSoundBuffer && audioContext) {
+        const source = audioContext.createBufferSource();
+        source.buffer = bubbleSoundBuffer;
+        source.connect(audioContext.destination);
+        source.start(0);
+    }
+}
+
 function handleStartKey() {
   if (countdownStarted || gameStarted) return;
   countdownStarted = true;
-
+  
   let current = countdownValue;
+
+  setInterval(() => gameSong.play(), 1000)
 
   overlay.innerText = `Bolinhas caindo em ${current}...`;
   countdownTimer = setInterval(() => {
@@ -97,6 +145,8 @@ window.addEventListener("keydown", (e) => {
 
 function resetGame() {
   // Para geração de bolinhas
+  gameSong.pause()
+  gameSong.currentTime = 0;
   clearInterval(bolinhaInterval);
 
   // Remove bolinhas da cena e do mundo físico
@@ -122,7 +172,7 @@ function resetGame() {
 }
 
 // Timer
-let gameDuration = 30; // segundos
+let gameDuration = 40; // segundos
 let gameTimeRemaining = gameDuration;
 let gameTimerInterval = null;
 
@@ -159,11 +209,14 @@ document.body.appendChild(timerDisplay);
 
 // Finalizar jogo
 function endGame() {
+  gameSong.pause()
+  gameSong.currentTime = 0;
+
   clearInterval(bolinhaInterval);
   timerDisplay.style.display = "none";
   scoreDisplay.style.display = "none";
 
-  overlay.innerText = "Fim do jogo! Pressione R para reiniciar";
+  overlay.innerText = `Fim do jogo! Pressione R para reiniciar \n Pontos: ${score}`;
   document.body.appendChild(overlay);
   document.body.style.cursor = "default";
 
@@ -189,7 +242,7 @@ renderer.shadowMapType = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 scene.add(new THREE.AmbientLight(0x666666));
 
-const light = new THREE.DirectionalLight(0x666666, 1);
+const light = new THREE.DirectionalLight(0x666666, 3);
 light.position.set(2, 8, 0);
 light.castShadow = true;
 scene.add(light);
@@ -213,7 +266,7 @@ var groundBody = new CANNON.Body({
 
 var groundShape = new CANNON.Plane();
 
-const skyBoxGeo = new THREE.BoxGeometry(38, 32, 32)
+const skyBoxGeo = new THREE.SphereGeometry(38, 32, 32)
 const skyBoxMaterial = new THREE.MeshBasicMaterial({
     map: THREE.ImageUtils.loadTexture('./textures/background.png'),
     side: 2
@@ -349,6 +402,13 @@ basketBody.addShape(
   basketBottom,
   new CANNON.Vec3(0, -wallHeight / 2, 0)
 );
+
+// Bloquear o fundo
+basketBody.addShape(
+  new CANNON.Box(new CANNON.Vec3(basketWidth / 2, 0.05, basketDepth / 2)),
+  new CANNON.Vec3(0, -wallHeight / 2 -0.05, 0),
+);
+
 // Paredes
 basketBody.addShape(
   new CANNON.Box(new CANNON.Vec3(wallThickness, wallHeight / 2, basketDepth / 2)),
@@ -424,14 +484,25 @@ basket.add(right);
 basket.position.copy(basketBody.position);
 scene.add(basket);
 
-const planeGeo = new THREE.PlaneGeometry(10, 20);
+const planeGeo = new THREE.PlaneGeometry(25, 40);
 const planeMaterial = new THREE.MeshPhongMaterial({
-    map: THREE.ImageUtils.loadTexture('./textures/grass.jpg')
+    opacity: 0.4, 
+    color: 0x000000,
+    transparent: true,
 });
+
 const plane = new THREE.Mesh(planeGeo, planeMaterial);
 plane.position.copy(new THREE.Vector3(0, -2, 0));
 plane.rotation.x = -Math.PI / 2;
 scene.add(plane);
+
+// Plano extra para compensar a mudança de Cor
+const planeGeo2 = new THREE.PlaneGeometry(60, 20)
+const plane2 = new THREE.Mesh(planeGeo2, planeMaterial.clone())
+plane2.position.copy(new THREE.Vector3(-15, 7.65, 0))
+plane2.rotation.y = Math.PI / 2
+scene.add(plane2)
+//
 
 plane.castShadow = true;
 plane.receiveShadow = true;
@@ -463,7 +534,7 @@ function onMouseMove(e) {
   if (raycast.ray.intersectPlane(grabPlane, intersection)) {
     // Limita posição
     intersection.x = Math.min(1, Math.max(-1, intersection.x));
-    intersection.y = Math.min(-0.2, Math.max(-1.5, intersection.y));
+    intersection.y = Math.min(-0.2, Math.max(-1.3, intersection.y));
     intersection.z = Math.min(3.4, Math.max(-3.4, intersection.z));
 
     moveBasketTo(intersection);
@@ -488,6 +559,8 @@ basketBody.addEventListener("collide", function (e) {
                         contact.bj === basketBody && contact.sj === basketBottom;
 
   if (i !== -1 && wasWithBottom) {
+    playBubbleSound()
+
     // Lê os pontos do userData da bolinha. Se não existir, soma 10 por padrão.
     score += bola.userData?.points || 10; 
     scoreDisplay.innerText = `Pontos: ${score}`;
