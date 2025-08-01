@@ -38,7 +38,7 @@ overlay.innerText = "Pressione qualquer tecla ou clique para iniciar";
 document.body.appendChild(overlay);
 
 const gameSong = new Audio("./sounds/tema.mp3");
-gameSong.volume = 0.3
+gameSong.volume = 0.4
 
 let audioContext;
 let bubbleSoundBuffer;
@@ -89,7 +89,7 @@ function handleStartKey() {
   
   let current = countdownValue;
 
-  setInterval(() => gameSong.play(), 1000)
+  setTimeout(() => gameSong.play(), 1000)
 
   overlay.innerText = `Bolinhas caindo em ${current}...`;
   countdownTimer = setInterval(() => {
@@ -450,6 +450,7 @@ basket.add(bottom);
 const frontMaterial = new THREE.MeshBasicMaterial({
   color: 0xffffff,
   transparent: true,
+  depthWrite: false,
   opacity: 0.1,
 });
 
@@ -549,6 +550,59 @@ window.addEventListener("mousemove", onMouseMove);
 
 var lastTime;
 
+// Criar Particulas da Bolinha
+let activeParticles = []
+
+function createStarParticle(position, isSpecial) {
+  const particlesCount = isSpecial ? 100 : 50;
+  const maxVelocity = 1.5
+  const particles = new THREE.Geometry();
+  const velocities = []
+  const pText = `./textures/${isSpecial ? "star" : "bubble"}.png`
+
+  const material = new THREE.PointCloudMaterial({
+      map:THREE.ImageUtils.loadTexture(pText),
+      transparent: true,
+      depthWrite: false,
+      size: 0.1
+  });
+
+  for(let i=0; i < particlesCount; i++) {
+    const x = (0.8 + Math.random() * 0.4) * position.x;
+    const y = (0.8 + Math.random() * 0.4) * position.y;
+    const z = (0.8 + Math.random() * 0.4) * position.z;
+
+    let particle = new THREE.Vector3(x,y,z);
+
+    particles.vertices.push(particle);
+
+    let vel = new THREE.Vector3(
+      (Math.random() - 0.5),
+      (Math.random() - 0.5),
+      (Math.random() - 0.5)
+    ).normalize().multiplyScalar(0.5 + Math.random() * maxVelocity)
+
+    velocities.push(vel.multiplyScalar(1 / 200))
+  }
+
+  const particleSystem = new THREE.PointCloud(particles, material);
+
+  const particlesData = {
+    particles,
+    velocities,
+  }
+
+  activeParticles.push(particlesData)
+
+  scene.add(particleSystem);
+
+  // Remove as particulas 
+  setTimeout(() => {
+    scene.remove(particleSystem)
+    activeParticles = activeParticles.filter(p => p !== particlesData)
+  }, 1000)
+}
+
 basketBody.addEventListener("collide", function (e) {
   const bola = e.body;
   const i = sphereBodies.indexOf(bola);
@@ -560,6 +614,7 @@ basketBody.addEventListener("collide", function (e) {
 
   if (i !== -1 && wasWithBottom) {
     playBubbleSound()
+    createStarParticle(bola.position, bola.userData?.points == 50 || false)
 
     // Lê os pontos do userData da bolinha. Se não existir, soma 10 por padrão.
     score += bola.userData?.points || 10; 
@@ -621,6 +676,15 @@ function animate() {
         sphereBodies.shift();
       }
     }
+  }
+
+  if(activeParticles) {
+    activeParticles.forEach(pSystem => {
+      pSystem.particles.verticesNeedUpdate = true;
+      pSystem.particles.vertices.forEach((particle, i) => {
+        particle.add(pSystem.velocities[i])
+      });
+    })
   }
 
   basket.position.copy(basketBody.position);
